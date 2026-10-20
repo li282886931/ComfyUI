@@ -25,6 +25,26 @@ CLI_FEATURE_FLAG_REGISTRY: dict[str, FeatureFlagInfo] = {
         "default": False,
         "description": "Show the sign-in button in the frontend even when not signed in",
     },
+    "enable_telemetry": {
+        "type": "bool",
+        "default": False,
+        "description": "Signal the frontend that telemetry collection is enabled",
+    },
+    "partner_run_gate_enabled": {
+        "type": "bool",
+        "default": True,
+        "description": "Gate the local Run button behind sign-in when the graph contains partner nodes",
+    },
+    "partner_node_token": {
+        "type": "bool",
+        "default": False,
+        "description": "Queue Local API-node prompts with a renewable partner-node token instead of the workspace token",
+    },
+    "local_web_sso": {
+        "type": "bool",
+        "default": False,
+        "description": "Offer Sign in with browser (Cloud OAuth + PKCE) on Local ComfyUI opened at localhost or 127.0.0.1",
+    },
 }
 
 
@@ -95,13 +115,15 @@ def _parse_cli_feature_flags() -> dict[str, Any]:
 # Default server capabilities
 _CORE_FEATURE_FLAGS: dict[str, Any] = {
     "supports_preview_metadata": True,
+    "supports_model_type_tags": True,
     "max_upload_size": args.max_upload_size * 1024 * 1024, # Convert MB to bytes
     "extension": {"manager": {"supports_v4": True}},
     "node_replacements": True,
-    "assets": args.enable_assets,
+    # main.py replaces this at startup with the selected AssetManager's state.
+    "assets": not args.disable_assets,
 }
 
-# CLI-provided flags cannot overwrite core flags
+# CLI-provided flags cannot overwrite core flags. Startup code may: main.py sets "assets".
 _cli_flags = {k: v for k, v in _parse_cli_feature_flags().items() if k not in _CORE_FEATURE_FLAGS}
 
 SERVER_FEATURE_FLAGS: dict[str, Any] = {**_CORE_FEATURE_FLAGS, **_cli_flags}
