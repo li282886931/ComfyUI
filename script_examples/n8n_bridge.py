@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import sys
 import os
@@ -21,7 +20,7 @@ async def handle_generate(request):
         data = await request.json()
         prompt = data.get("prompt")
         loras = data.get("loras", []) # 新增：支持从 n8n 传入 LoRA 列表
-        
+
         if not prompt:
             return web.json_response({"error": "Missing 'prompt' in request body"}, status=400)
 
@@ -32,7 +31,7 @@ async def handle_generate(request):
         async with ComfyUIClient(server_address=COMFY_SERVER) as client:
             # 运行工作流并等待结果
             results = await client.run_workflow(prompt)
-            
+
             # 将结果转换为 base64，方便 n8n 处理
             output_data = []
             for node_id, images in results.items():
@@ -41,7 +40,7 @@ async def handle_generate(request):
                         "node_id": node_id,
                         "image_base64": base64.b64encode(img_bytes).decode('utf-8')
                     })
-            
+
             return web.json_response({
                 "status": "success",
                 "images": output_data
@@ -56,6 +55,6 @@ async def init_app():
     return app
 
 if __name__ == "__main__":
-    print(f"Starting n8n bridge server on http://0.0.0.0:8000")
+    print("Starting n8n bridge server on http://0.0.0.0:8000")
     print(f"Connecting to ComfyUI at {COMFY_SERVER}")
     web.run_app(init_app(), host='0.0.0.0', port=8000)

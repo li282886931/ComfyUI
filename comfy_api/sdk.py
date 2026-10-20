@@ -3,9 +3,7 @@ import json
 import uuid
 import aiohttp
 import logging
-from typing import Dict, Any, List, Optional, Union
-from io import BytesIO
-from .lora_helper import LoraChain, apply_loras_to_prompt
+from typing import Dict, Any, List, Optional
 
 class ComfyUIClient:
     """
@@ -29,7 +27,7 @@ class ComfyUIClient:
         """Establishes HTTP session and WebSocket connection."""
         if not self.session:
             self.session = aiohttp.ClientSession()
-        
+
         ws_url = f"ws://{self.server_address}/ws?clientId={self.client_id}"
         self.ws = await self.session.ws_connect(ws_url)
         self.logger.info(f"Connected to ComfyUI at {self.server_address}")
@@ -75,7 +73,7 @@ class ComfyUIClient:
         Wait for a prompt to complete via WebSocket and return the generated images.
         """
         self.logger.info(f"Waiting for prompt {prompt_id} to complete...")
-        
+
         start_time = asyncio.get_event_loop().time()
         while True:
             if asyncio.get_event_loop().time() - start_time > timeout:
@@ -94,20 +92,20 @@ class ComfyUIClient:
         # Fetch history to get output details
         history = await self.get_history(prompt_id)
         outputs = history.get('outputs', {})
-        
+
         result_images = {}
         for node_id, node_output in outputs.items():
             if 'images' in node_output:
                 images_data = []
                 for img_info in node_output['images']:
                     img_bytes = await self.get_image(
-                        img_info['filename'], 
-                        img_info['subfolder'], 
+                        img_info['filename'],
+                        img_info['subfolder'],
                         img_info['type']
                     )
                     images_data.append(img_bytes)
                 result_images[node_id] = images_data
-        
+
         return result_images
 
     async def run_workflow(self, prompt: Dict[str, Any], timeout: int = 300) -> Dict[str, List[bytes]]:

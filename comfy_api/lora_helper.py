@@ -26,7 +26,7 @@ class LoraChain:
             },
             "class_type": "LoraLoader"
         }
-        
+
         # 更新当前的输出引用
         self.current_model = [node_id, 0]
         self.current_clip = [node_id, 1]
@@ -41,7 +41,7 @@ class LoraChain:
         """获取最终叠加完 LoRA 后的 model 和 clip 引用"""
         return self.current_model, self.current_clip
 
-def apply_loras_to_prompt(prompt: Dict[str, Any], lora_list: List[Dict[str, Any]], 
+def apply_loras_to_prompt(prompt: Dict[str, Any], lora_list: List[Dict[str, Any]],
                          model_node_id: str = "4", clip_node_id: str = "4") -> Dict[str, Any]:
     """
     工具函数：将一组 LoRA 配置自动注入到现有的 prompt JSON 中。
@@ -52,19 +52,19 @@ def apply_loras_to_prompt(prompt: Dict[str, Any], lora_list: List[Dict[str, Any]
     chain = LoraChain(model_node_id, clip_node_id)
     for lora in lora_list:
         chain.add_lora(
-            lora['name'], 
-            lora.get('strength_model', 1.0), 
+            lora['name'],
+            lora.get('strength_model', 1.0),
             lora.get('strength_clip', 1.0)
         )
-    
+
     # 只改写原工作流节点，避免把新建 LoRA 节点的基础引用改成自身。
     original_node_ids = set(prompt)
     new_nodes = chain.get_nodes()
     prompt.update(new_nodes)
-    
+
     # 更新后续节点对 model 和 clip 的引用
     final_model, final_clip = chain.get_final_targets()
-    
+
     for node_id in original_node_ids:
         node = prompt[node_id]
         if "inputs" in node:
@@ -75,5 +75,5 @@ def apply_loras_to_prompt(prompt: Dict[str, Any], lora_list: List[Dict[str, Any]
                         inputs[key] = final_model
                     elif value[0] == clip_node_id:
                         inputs[key] = final_clip
-                        
+
     return prompt

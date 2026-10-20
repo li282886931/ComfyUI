@@ -56,7 +56,7 @@ async def main():
         print("Starting workflow...")
         try:
             results = await client.run_workflow(prompt)
-            
+
             for node_id, images in results.items():
                 print(f"Node {node_id} generated {len(images)} images.")
                 for i, img_bytes in enumerate(images):
@@ -64,7 +64,7 @@ async def main():
                     with open(filename, "wb") as f:
                         f.write(img_bytes)
                     print(f"Saved: {filename}")
-                    
+
         except Exception as e:
             print(f"Error during execution: {e}")
 
