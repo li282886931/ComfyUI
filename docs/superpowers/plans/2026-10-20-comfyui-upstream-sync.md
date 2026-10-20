@@ -178,50 +178,36 @@ git add comfy_api_nodes tests-unit/comfy_api_nodes_test/custom_api_nodes_test.py
 git commit -m "feat: restore custom Stability and Sora API nodes"
 ```
 
-### Task 5: Reconcile asset query and ingestion extensions
+### Task 5: Audit asset query and ingestion extensions
 
 **Files:**
-- Modify: `app/assets/database/queries/asset.py`
-- Modify: `app/assets/database/queries/asset_reference.py`
-- Modify: `app/assets/database/queries/common.py`
-- Modify: `app/assets/services/bulk_ingest.py`
-- Modify: related official asset services and migrations only where required by imports or schema contracts
-- Test: `tests-unit/assets_test/queries/test_custom_asset_queries.py`
+- Inspect: `app/assets/database/models.py`
+- Inspect: `app/assets/database/queries/records.py`
+- Inspect: `app/assets/services/ingest.py`
+- Inspect: `alembic_db/versions/0007_record_content_split.py`
+- Inspect: `alembic_db/versions/0008_drop_asset_meta.py`
+- Test: official `tests-unit/assets_test` coverage
 
-- [ ] **Step 1: Write failing compatibility tests**
+- [ ] **Step 1: Compare the old and new asset contracts**
 
-Tests must exercise the custom asset-reference query and batch-ingest public functions against the official asset schema and database session fixtures.
+Confirm whether each local `AssetReference` and `bulk_ingest` function has a live caller. Map live behavior to the official `AssetContent`/`Asset`/`records`/`scanner` implementation.
 
-- [ ] **Step 2: Run the focused tests**
+- [ ] **Step 2: Reject incompatible dead-code restoration**
 
-Run:
-
-```bash
-pytest tests-unit/assets_test/queries/test_custom_asset_queries.py -q
-```
-
-Expected: FAIL until the custom query and ingestion behavior is reconciled with the official asset implementation.
-
-- [ ] **Step 3: Adapt the custom asset code**
-
-Port only custom query predicates, projection behavior, and batch-ingest behavior. Keep official lifecycle, scanner, metadata, preview, and migration ownership intact.
-
-- [ ] **Step 4: Run the focused tests**
-
-Run:
+Do not restore modules that import removed models or migrations. The official asset rewrite already provides the live equivalent for scanning, metadata, tags, previews, and batch ingestion.
 
 ```bash
-pytest tests-unit/assets_test/queries/test_custom_asset_queries.py -q
+rg -n "AssetReference|batch_insert_seed_assets|bulk_insert_assets" app tests-unit
 ```
 
-Expected: PASS.
-
-- [ ] **Step 5: Commit the asset batch**
+- [ ] **Step 3: Run official asset tests**
 
 ```bash
-git add app tests-unit/assets_test/queries/test_custom_asset_queries.py
-git commit -m "feat: preserve custom asset query extensions"
+pytest tests-unit/assets_test -q
 ```
+
+Expected: official asset lifecycle tests pass in the project dependency environment.
+
 
 ### Task 6: Restore unique blueprints
 
