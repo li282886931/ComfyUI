@@ -1026,10 +1026,7 @@
                 "localized_name": "IMAGE",
                 "name": "IMAGE",
                 "type": "IMAGE",
-                "links": [
-                  166,
-                  194
-                ]
+                "links": []
               },
               {
                 "name": "mask",
