@@ -123,20 +123,33 @@ def pin_modules(comfy_modules, device, dtype=None):
     return offload_stream, fully_faulted
 
 def cleanup_prefetched_modules(module, comfy_modules):
+    first_error = None
     for s in comfy_modules:
         prefetch = getattr(s, "_prefetch", None)
         if prefetch is None:
             continue
-        for param_key in ("weight", "bias"):
-            lowvram_fn = getattr(s, param_key + "_lowvram_function", None)
-            if lowvram_fn is not None:
-                lowvram_fn.clear_prepared()
-        if prefetch["signature"] is not None:
-            comfy_aimdo.model_vbar.vbar_unpin(s._v)
-        delattr(s, "_prefetch")
+        try:
+            for param_key in ("weight", "bias"):
+                lowvram_fn = getattr(s, param_key + "_lowvram_function", None)
+                if lowvram_fn is not None:
+                    lowvram_fn.clear_prepared()
+            if prefetch["signature"] is not None:
+                comfy_aimdo.model_vbar.vbar_unpin(s._v)
+        except Exception as e:
+            if first_error is None:
+                first_error = e
+        finally:
+            delattr(s, "_prefetch")
     if getattr(module, "_v_block_faulted", False):
-        comfy_aimdo.model_vbar.vbar_unpin(module._v_block)
-        del module._v_block_faulted
+        try:
+            comfy_aimdo.model_vbar.vbar_unpin(module._v_block)
+        except Exception as e:
+            if first_error is None:
+                first_error = e
+        finally:
+            del module._v_block_faulted
+    if first_error is not None:
+        raise first_error
 
 def _drop_graph(module):
     graph = getattr(module, "_comfy_graph", None)
@@ -156,22 +169,32 @@ def cleanup_prefetch_queues():
     global MALLOC_GRAPH_ROGUES
     global MALLOC_GRAPH_USED
 
-    cleanup_malloc_graph()
-    for queue in PREFETCH_QUEUES:
-        for entry in queue:
-            if entry is None or not isinstance(entry, tuple):
-                continue
-            _, prefetch_state = entry
-            prefetched_module, comfy_modules = prefetch_state
+    queues = PREFETCH_QUEUES
+    PREFETCH_QUEUES = []
+    first_error = None
+    try:
+        cleanup_malloc_graph()
+    except Exception as e:
+        first_error = e
+    for queue in queues:
+        head = queue[0] if queue else None
+        if not isinstance(head, tuple) or len(head) != 2 or not isinstance(head[1], tuple):
+            continue
+        prefetched_module, comfy_modules = head[1]
+        try:
             if comfy_modules is not None:
                 cleanup_prefetched_modules(prefetched_module, comfy_modules)
-    PREFETCH_QUEUES = []
+        except Exception as e:
+            if first_error is None:
+                first_error = e
     GRAPH_WARMED_MODULES.clear()
     if MALLOC_GRAPH_USED:
         logging.info("Comfy model compiler graph breaks: %d, rogues: %d", MALLOC_GRAPH_BREAKS, MALLOC_GRAPH_ROGUES)
     MALLOC_GRAPH_BREAKS = 0
     MALLOC_GRAPH_ROGUES = 0
     MALLOC_GRAPH_USED = False
+    if first_error is not None:
+        raise first_error
 
 def prefetch_queue_pop(queue, device, module, dtype=None, core=None, enable_graph=False, generator=None, malloc_scope=None):
     malloc_graph = MALLOC_GRAPHS.get(threading.get_ident())
@@ -237,6 +260,7 @@ def prefetch_queue_pop(queue, device, module, dtype=None, core=None, enable_grap
                 if hasattr(s, "_v"):
                     comfy_modules.append(s)
 
+        queue[0] = (None, (module, comfy_modules))
         offload_stream, fully_faulted = pin_modules(comfy_modules, device, dtype)
         queue[0] = (offload_stream, (module, comfy_modules))
 
